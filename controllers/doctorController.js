@@ -1,4 +1,5 @@
 const Doctor = require("../models/Doctor");
+const uploadToCloudinary = require("../utils/uploadToCloudinary");
 
 // Shared validation for create/update — catches bad types and values
 // before anything reaches the database.
@@ -62,13 +63,16 @@ const createDoctor = async (req, res) => {
     const { name, specialization, consultationFee, dailyCapacity, isAvailable } =
       req.body;
 
+    // Image goes to Cloudinary; we store the returned public URL.
+    const imageUrl = req.file ? await uploadToCloudinary(req.file.buffer) : null;
+
     const doctor = await Doctor.create({
       name: name.trim(),
       specialization: specialization.trim(),
       consultationFee: Number(consultationFee),
       dailyCapacity: Number(dailyCapacity),
       isAvailable: parseIsAvailable(isAvailable),
-      image: req.file ? `/uploads/${req.file.filename}` : null,
+      image: imageUrl,
     });
 
     res.status(201).json({
@@ -128,7 +132,7 @@ const updateDoctor = async (req, res) => {
     if (consultationFee !== undefined) doctor.consultationFee = Number(consultationFee);
     if (dailyCapacity !== undefined) doctor.dailyCapacity = Number(dailyCapacity);
     if (isAvailable !== undefined) doctor.isAvailable = parseIsAvailable(isAvailable);
-    if (req.file) doctor.image = `/uploads/${req.file.filename}`;
+    if (req.file) doctor.image = await uploadToCloudinary(req.file.buffer);
 
     await doctor.save();
 

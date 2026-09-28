@@ -2,7 +2,6 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
 const multer = require("multer");
 
 const connectDB = require("./config/db");
@@ -19,9 +18,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Make uploaded doctor images publicly accessible
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
 app.get("/", (req, res) => {
   res.json({ message: "Clinic Appointment API is running" });
 });
@@ -35,14 +31,10 @@ app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
 
-// Global error handler — must be last, and must take 4 args for
-// Express to recognise it as an error handler.
+// Global error handler — must be last, and must take 4 args.
 app.use((err, req, res, next) => {
   console.error(err);
 
-  // Multer errors (file too large, wrong type) have a distinct shape
-  // and would otherwise bypass this and hit Express's default HTML
-  // error page instead of returning clean JSON.
   if (err instanceof multer.MulterError) {
     if (err.code === "LIMIT_FILE_SIZE") {
       return res.status(400).json({ message: "Image must be 5MB or smaller" });
@@ -50,8 +42,6 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ message: err.message });
   }
 
-  // fileFilter in uploadMiddleware.js rejects bad file types by
-  // calling cb(new Error(...)), which also lands here.
   if (err.message && err.message.includes("images are allowed")) {
     return res.status(400).json({ message: err.message });
   }
@@ -61,8 +51,12 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-// '0.0.0.0' binds to all network interfaces so devices on the same
-// network (or a hosting platform's proxy) can reach the server.
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running globally on port ${PORT}`);
-});
+// Only start a listening server when running locally. On Vercel the
+// exported app is run as a serverless function instead.
+if (!process.env.VERCEL) {
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running globally on port ${PORT}`);
+  });
+}
+
+module.exports = app;
